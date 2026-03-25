@@ -1,0 +1,457 @@
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { useNavigate } from "react-router-dom";
+import { runDraw } from "../api/draw";
+import { Menu, X, LogOut } from "lucide-react";
+
+import UploadProof from "../components/UploadProof";
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+
+  const [charity, setCharity] = useState(null);
+  const [drawResult, setDrawResult] = useState(null);
+  const [userResult, setUserResult] = useState(null);
+  const [winnings, setWinnings] = useState([]);
+  const [loadingDraw, setLoadingDraw] = useState(false);
+  const [loadingPage, setLoadingPage] = useState(true);
+
+  // 🔐 Check subscription
+  const checkSubscription = async () => {
+    try {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        navigate("/login");
+        return false;
+      }
+
+      const { data, error: subError } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (subError) {
+        console.error("Subscription error:", subError.message);
+        return false;
+      }
+
+      if (!data) {
+        navigate("/subscribe");
+        return false;
+      }
+
+      const now = new Date();
+      const end = new Date(data.end_date);
+
+      if (!data.end_date || isNaN(end.getTime()) || now > end) {
+        navigate("/subscribe");
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error("Unexpected error:", err);
+      return false;
+    }
+  };
+
+  // 🎗 Check charity
+  const checkCharity = async () => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const { data } = await supabase
+      .from("user_charity")
+      .select("*, charities(*)")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!data) {
+      navigate("/select-charity");
+      return false; // 🔥 IMPORTANT
+    }
+
+    setCharity(data);
+    return true; // 🔥 IMPORTANT
+  } catch (err) {
+    console.error("Charity error:", err);
+    return false;
+  }
+};
+
+  // 🎲 Fetch latest draw
+  const fetchLatestDraw = async () => {
+    try {
+      const { data } = await supabase
+        .from("draws")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setDrawResult(data);
+    } catch (err) {
+      console.error("Draw error:", err);
+    }
+  };
+
+  // 🧠 Fetch user result
+  const fetchUserResult = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data: latestDraw } = await supabase
+        .from("draws")
+        .select("id")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!latestDraw) return;
+
+      const { data } = await supabase
+        .from("draw_entries")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("draw_id", latestDraw.id)
+        .maybeSingle();
+
+      setUserResult(data);
+    } catch (err) {
+      console.error("User result error:", err);
+    }
+  };
+
+  // 💰 Fetch winnings
+  const fetchWinnings = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("winnings")
+        .select("*")
+        .eq("user_id", user.id)
+
+      if (error) {
+        console.error("Winnings error:", error.message);
+        return;
+      }
+
+      setWinnings(data || []);
+    } catch (err) {
+      console.error("Winnings error:", err);
+    }
+  };
+
+  // 🚀 INIT
+useEffect(() => {
+  const init = async () => {
+    try {
+      const isSubscribed = await checkSubscription();
+
+      if (!isSubscribed) {
+        setLoadingPage(false);
+        return;
+      }
+
+      // ✅ FIX: properly get charity result
+      const hasCharity = await checkCharity();
+
+      if (!hasCharity) {
+        setLoadingPage(false);
+        return;
+      }
+     
+
+      // ✅ Continue only if valid
+      await fetchLatestDraw();
+      await fetchUserResult();
+      await fetchWinnings();
+
+    } catch (error) {
+      console.error("Init error:", error);
+    } finally {
+      setLoadingPage(false);
+    }
+  };
+
+  init();
+}, []);
+
+
+// 🎲 Run draw
+const handleRunDraw = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  // 🔥 CHECK SCORES FIRST
+  const { data: scores } = await supabase
+    .from("scores")
+    .select("id")
+    .eq("user_id", user.id);
+
+  if (!scores || scores.length === 0) {
+    const confirmGo = window.confirm(
+      "⚠️ You have not added any scores.\n\nPlease add scores first.\n\nGo to Scores page?"
+    );
+
+    if (confirmGo) {
+      navigate("/scores");
+    }
+
+    return; // ⛔ stop draw
+  }
+
+  // ✅ YOUR ORIGINAL LOGIC (UNCHANGED)
+  if (loadingDraw) return;
+  setLoadingDraw(true);
+
+  try {
+    await runDraw();
+
+    await fetchLatestDraw();
+    await fetchUserResult();
+    await fetchWinnings();
+
+    
+  } catch (err) {
+    console.error(err);
+    alert("Error running draw");
+  } finally {
+    setLoadingDraw(false);
+  }
+};
+
+
+// 🚪 Logout
+const logout = async () => {
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error("Logout error:", error.message);
+    return;
+  }
+
+  // ✅ Proper React navigation
+  navigate("/login", { replace: true });
+};
+
+// ⏳ Loading
+if (loadingPage) {
+  return (
+    <div className="h-screen flex flex-col items-center justify-center bg-gray-100">
+
+      {/* Spinner */}
+      <div className="w-10 h-10 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin"></div>
+
+      {/* Text */}
+      <p className="mt-4 text-sm text-gray-500">
+        Loading dashboard...
+      </p>
+    </div>
+  );
+}
+
+  return (
+  <div className="flex h-screen overflow-hidden bg-[#f5f6f8]">
+
+    {/* 🔥 SIDEBAR (FIXED) */}
+    <aside className="w-64 bg-[#0f172a] text-gray-300 flex flex-col fixed left-0 top-0 h-screen">
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 py-4 pt-3 space-y-1 text-sm+0.5 font-semibold">
+
+         <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-gray-900"></div>
+          <h1 className="font-bold text-white tracking-wide text-3xl pb-8 gap-1.5 ">
+            Golf  
+          </h1>
+        </div>
+
+        <button
+          onClick={() => navigate("/dashboard")}
+          className="w-full text-left px-4 py-2 rounded-md bg-gray-800 text-white font-bold"
+        >
+          Dashboard
+        </button>
+
+
+        <button
+          onClick={() => navigate("/scores")}
+          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+        >
+          Scores
+        </button>
+
+        <button
+          onClick={() => navigate("/subscribe")}
+          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+        >
+          Subscription
+        </button>
+
+        <button
+          onClick={() => navigate("/admin")}
+          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+        >
+          Admin
+        </button>
+      </nav>
+
+      {/* Logout */}
+      <div className="p-4 border-t border-gray-800">
+        <button
+          onClick={logout}
+          className="w-full flex items-center gap-2 px-4 py-2 text-sm 
+          text-white rounded-md pl-15
+        bg-red-500 hover:text-gray-300 transition"
+        >
+          <LogOut size={16} />
+          Logout
+        </button>
+      </div>
+    </aside>
+
+    {/* 🔥 RIGHT SIDE (SHIFTED) */}
+    <div className="flex-1 flex flex-col h-screen overflow-hidden ml-64">
+
+      {/* 🔥 TOPBAR */}
+      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+
+        <h1 className="text-sm font-semibold text-gray-700 tracking-wide">
+          DASHBOARD
+        </h1>
+
+        <button
+          onClick={handleRunDraw}
+          disabled={loadingDraw}
+          className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md 
+          hover:bg-black transition disabled:opacity-50"
+        >
+          {loadingDraw ? "Processing..." : "Run Draw"}
+        </button>
+      </header>
+
+      {/* 🔥 SCROLLABLE CONTENT */}
+      <main className="flex-1 overflow-y-auto p-6">
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+
+          <div className="bg-white border border-gray-200 p-5 rounded-md">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">
+              Available Funds
+            </p>
+            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+              ₹20,426.60
+            </h2>
+          </div>
+
+          <div className="bg-white border border-gray-200 p-5 rounded-md">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">
+              Matches
+            </p>
+            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+              {userResult?.matched_count || 0}
+            </h2>
+          </div>
+
+          <div className="bg-white border border-gray-200 p-5 rounded-md">
+            <p className="text-xs text-gray-500  uppercase tracking-wide">
+              Winnings
+            </p>
+            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+              ₹{winnings.reduce((a, b) => a + b.amount, 0)}
+            </h2>
+          </div>
+        </div>
+
+        {/* Charity */}
+        <div className="bg-white border border-gray-200 p-5 rounded-md mb-6">
+          <h2 className="text-sm  text-gray-900 font-bold mb-3">
+            Charity
+          </h2>
+
+          {charity ? (
+            <>
+              <p className="text-sm text-gray-800">
+                {charity.charities?.name}
+              </p>
+              <p className="text-sm text-gray-500">
+                {charity.percentage}%
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm">Not selected</p>
+          )}
+        </div>
+
+        {/* Winnings Table */}
+        <div className="bg-white border border-gray-200 rounded-md">
+
+          <div className="px-4 py-3 border-b text-xs font-bold text-gray-950 uppercase tracking-wide">
+            Winnings
+          </div>
+
+          {winnings.length > 0 ? (
+            winnings.map((w) => (
+              <div
+                key={w.id}
+                className="flex justify-between items-center px-4 py-3 border-b text-sm"
+              >
+                <div>
+                  <p className="text-gray-900 font-medium">
+                    ₹{w.amount}
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    {w.status}
+                  </p>
+                </div>
+
+                <div>
+                  {!w.proof_url ? (
+                    <UploadProof winningId={w.id} />
+                  ) : (
+                    <a
+                      href={w.proof_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-blue-600 hover:underline"
+                    >
+                      View
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="p-4 text-gray-400 text-sm">
+              No records
+            </p>
+          )}
+        </div>
+
+      </main>
+    </div>
+  </div>
+);
+}
