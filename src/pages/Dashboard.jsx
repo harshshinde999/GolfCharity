@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [winnings, setWinnings] = useState([]);
   const [loadingDraw, setLoadingDraw] = useState(false);
   const [loadingPage, setLoadingPage] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // 🔐 Check subscription
   const checkSubscription = async () => {
@@ -274,44 +275,54 @@ if (loadingPage) {
   return (
   <div className="flex h-screen overflow-hidden bg-[#f5f6f8]">
 
-    {/* 🔥 SIDEBAR (FIXED) */}
-    <aside className="w-64 bg-[#0f172a] text-gray-300 flex flex-col fixed left-0 top-0 h-screen">
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 pt-3 space-y-1 text-sm+0.5 font-semibold">
-
-         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-gray-900"></div>
-          <h1 className="font-bold text-white tracking-wide text-3xl pb-8 gap-1.5 ">
-            Golf  
-          </h1>
+    {/* 🔥 SIDEBAR */}
+    <aside
+      className={`fixed z-40 top-0 left-0 h-screen w-64 bg-[#0f172a] text-gray-300 flex flex-col transform 
+      ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
+      transition-transform duration-300 
+      md:translate-x-0`}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-4">
+        <div className="flex pl-4 items-center gap-3 pb-3">
+          <div className="w-7 h-7  rounded-full bg-gray-600"></div>
+          <h1 className="font-bold text-white text-3xl ">Golf</h1>
         </div>
 
         <button
+          className="md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        >
+          <X />
+        </button>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 space-y-2 text-sm+1 font-semibold">
+        <button
           onClick={() => navigate("/dashboard")}
-          className="w-full text-left px-4 py-2 rounded-md bg-gray-800 text-white font-bold"
+          className="w-full text-left px-4 py-2 rounded-md bg-gray-800 text-white"
         >
           Dashboard
         </button>
 
-
         <button
           onClick={() => navigate("/scores")}
-          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+          className="w-full text-left px-4 py-2  rounded-md hover:bg-gray-800 hover:text-white"
         >
           Scores
         </button>
 
         <button
           onClick={() => navigate("/subscribe")}
-          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white"
         >
           Subscription
         </button>
 
         <button
           onClick={() => navigate("/admin")}
-          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white transition"
+          className="w-full text-left px-4 py-2 rounded-md hover:bg-gray-800 hover:text-white"
         >
           Admin
         </button>
@@ -321,9 +332,7 @@ if (loadingPage) {
       <div className="p-4 border-t border-gray-800">
         <button
           onClick={logout}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm 
-          text-white rounded-md pl-15
-        bg-red-500 hover:text-gray-300 transition"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm bg-red-500 rounded-md"
         >
           <LogOut size={16} />
           Logout
@@ -331,65 +340,93 @@ if (loadingPage) {
       </div>
     </aside>
 
-    {/* 🔥 RIGHT SIDE (SHIFTED) */}
-    <div className="flex-1 flex flex-col h-screen overflow-hidden ml-64">
+    {/* 🔥 OVERLAY (Mobile only) */}
+    {sidebarOpen && (
+      <div
+        className="fixed inset-0 bg-black/40 z-30 md:hidden"
+        onClick={() => setSidebarOpen(false)}
+      />
+    )}
+
+    {/* 🔥 MAIN CONTENT */}
+    <div className="flex-1 flex flex-col h-screen overflow-hidden w-full md:pl-64">
 
       {/* 🔥 TOPBAR */}
-      <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+      <header className="h-14 bg-white border-b flex items-center justify-between px-4 md:px-6">
 
-        <h1 className="text-sm font-semibold text-gray-700 tracking-wide">
+        {/* Mobile Menu */}
+        <button
+          className="md:hidden"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <Menu />
+        </button>
+
+        <h1 className="text-sm+1.5 font-semibold text-gray-700">
           DASHBOARD
         </h1>
 
         <button
           onClick={handleRunDraw}
           disabled={loadingDraw}
-          className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md 
-          hover:bg-black transition disabled:opacity-50"
+          className="
+            px-4 md:px-5 py-2 
+            text-sm font-semibold 
+            bg-linear-to-r from-gray-900 to-black 
+            text-white rounded-lg 
+            shadow-md
+            transition-all duration-200 ease-in-out
+
+            hover:from-black hover:to-gray-800 
+            hover:shadow-lg hover:scale-[1.03]
+
+            active:scale-95 
+            cursor-pointer
+
+            disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100
+          "
         >
           {loadingDraw ? "Processing..." : "Run Draw"}
         </button>
       </header>
 
-      {/* 🔥 SCROLLABLE CONTENT */}
-      <main className="flex-1 overflow-y-auto p-6">
+      {/* 🔥 CONTENT */}
+      <main className="flex-1 overflow-y-auto px-4 md:px-8 py-4 w-full">
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
 
-          <div className="bg-white border border-gray-200 p-5 rounded-md">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
+          <div className="bg-white border p-4 md:p-5 rounded-md">
+            <p className="text-xs text-gray-500 uppercase">
               Available Funds
             </p>
-            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+            <h2 className="text-lg md:text-xl font-semibold mt-1">
               ₹20,426.60
             </h2>
           </div>
 
-          <div className="bg-white border border-gray-200 p-5 rounded-md">
-            <p className="text-xs text-gray-500 uppercase tracking-wide">
+          <div className="bg-white border p-4 md:p-5 rounded-md">
+            <p className="text-xs text-gray-500 uppercase">
               Matches
             </p>
-            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+            <h2 className="text-lg md:text-xl font-semibold mt-1">
               {userResult?.matched_count || 0}
             </h2>
           </div>
 
-          <div className="bg-white border border-gray-200 p-5 rounded-md">
-            <p className="text-xs text-gray-500  uppercase tracking-wide">
+          <div className="bg-white border p-4 md:p-5 rounded-md">
+            <p className="text-xs text-gray-500 uppercase">
               Winnings
             </p>
-            <h2 className="text-xl font-semibold text-gray-900 mt-1">
+            <h2 className="text-lg md:text-xl font-semibold mt-1">
               ₹{winnings.reduce((a, b) => a + b.amount, 0)}
             </h2>
           </div>
         </div>
 
         {/* Charity */}
-        <div className="bg-white border border-gray-200 p-5 rounded-md mb-6">
-          <h2 className="text-sm  text-gray-900 font-bold mb-3">
-            Charity
-          </h2>
+        <div className="bg-white border p-4 md:p-5 rounded-md mb-6">
+          <h2 className="text-sm font-bold mb-3">Charity</h2>
 
           {charity ? (
             <>
@@ -405,10 +442,9 @@ if (loadingPage) {
           )}
         </div>
 
-        {/* Winnings Table */}
-        <div className="bg-white border border-gray-200 rounded-md">
-
-          <div className="px-4 py-3 border-b text-xs font-bold text-gray-950 uppercase tracking-wide">
+        {/* Winnings */}
+        <div className="bg-white border rounded-md">
+          <div className="px-4 py-3 border-b text-xs font-bold uppercase">
             Winnings
           </div>
 
@@ -416,7 +452,7 @@ if (loadingPage) {
             winnings.map((w) => (
               <div
                 key={w.id}
-                className="flex justify-between items-center px-4 py-3 border-b text-sm"
+                className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 px-4 py-3 border-b text-sm"
               >
                 <div>
                   <p className="text-gray-900 font-medium">
@@ -435,7 +471,21 @@ if (loadingPage) {
                       href={w.proof_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sm text-blue-600 hover:underline"
+                      className="
+                        inline-flex items-center justify-center
+                        px-3 py-1.5 
+                        text-xs md:text-sm font-medium
+                        text-blue-600 border border-blue-600 
+                        rounded-md
+
+                        transition-all duration-200
+
+                        hover:bg-blue-600 hover:text-white
+                        hover:shadow-md hover:scale-[1.05]
+
+                        active:scale-95
+                        cursor-pointer
+                      "
                     >
                       View
                     </a>
@@ -454,4 +504,5 @@ if (loadingPage) {
     </div>
   </div>
 );
+
 }
