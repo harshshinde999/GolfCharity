@@ -32,58 +32,61 @@ function AppContent() {
       <Navbar logout={logout} />
 
       <Routes>
-        <Route path="/" element={<Navigate to="/login" />} />
+  <Route path="/" element={<Navigate to="/login" />} />
 
-        {/* PUBLIC */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+  {/* PUBLIC */}
+  <Route path="/login" element={<Login />} />
+  <Route path="/register" element={<Register />} />
 
-        {/* PROTECTED */}
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
+  {/* PROTECTED */}
+  <Route
+    path="/dashboard"
+    element={
+      <ProtectedRoute>
+        <Dashboard />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/select-charity"
-          element={
-            <ProtectedRoute>
-              <SelectCharity />
-            </ProtectedRoute>
-          }
-        />
+  <Route
+    path="/select-charity"
+    element={
+      <ProtectedRoute>
+        <SelectCharity />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/scores"
-          element={
-            <ProtectedRoute>
-              <Scores />
-            </ProtectedRoute>
-          }
-        />
+  <Route
+    path="/scores"
+    element={
+      <ProtectedRoute>
+        <Scores />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/subscribe"
-          element={
-            <ProtectedRoute>
-              <Subscribe />
-            </ProtectedRoute>
-          }
-        />
+  <Route
+    path="/subscribe"
+    element={
+      <ProtectedRoute>
+        <Subscribe />
+      </ProtectedRoute>
+    }
+  />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <Admin />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+  <Route
+    path="/admin"
+    element={
+      <ProtectedRoute>
+        <Admin />
+      </ProtectedRoute>
+    }
+  />
+
+  {/* 🔥 THIS MUST BE INSIDE */}
+  <Route path="*" element={<Navigate to="/login" replace />} />
+</Routes>
     </>
   );
 }
